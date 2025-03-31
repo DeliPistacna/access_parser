@@ -66,7 +66,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let timer = Instant::now();
     let opts = CliOptions::parse();
     let mut ip_map: HashMap<String, IpInfo> = HashMap::new();
-    let file_reader = FileReader::new(opts.file_path.clone()).unwrap();
+    let file_reader = FileReader::new(opts.file_path.clone())?;
     let mut line_count = 0;
 
     // Quick pass over file, collecting ips
@@ -127,7 +127,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // Second pass -> collect all data
 
-    let file_reader = FileReader::new(opts.file_path).unwrap();
+    let file_reader = FileReader::new(opts.file_path)?;
     for line in file_reader.get_lines().unwrap() {
         line_count += 1;
         let line = line?;
