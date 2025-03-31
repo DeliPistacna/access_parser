@@ -20,4 +20,3 @@ Options:
 
 ## Todo:
 - [ ] nginx support
-- [ ] fix unhandled error when file cannot be opened
