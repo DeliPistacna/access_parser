@@ -1,4 +1,4 @@
-# Delaja's Acces Log Parser
+# Delaja's Access Log Parser
 
 ~~~
 A program to parse access logs and retrieve top IP addresses
