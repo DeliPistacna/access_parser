@@ -1,3 +1,4 @@
+mod cli_options;
 mod file_reader;
 mod free_ip_api;
 mod ip_info;
@@ -6,48 +7,20 @@ mod log_entry;
 mod printer;
 
 use chrono::{DateTime, Local};
-use clap::{ArgAction, Parser};
+use clap::Parser;
+use cli_options::CliOptions;
 use file_reader::FileReader;
 use free_ip_api::FreeIpApi;
 use ip_info::IpInfo;
-//use ip_location::IpLocation;
 use log_entry::LogEntry;
 use printer::Printer;
-//use tokio;
 
 use std::{
     cmp::Reverse,
-    collections::{hash_map::Entry, HashMap, HashSet},
+    collections::{HashMap, HashSet, hash_map::Entry},
     error::Error,
-    path::PathBuf,
     time::{Duration, Instant},
-    usize,
 };
-#[derive(Parser, Debug)]
-#[command(name = "accessparser")]
-#[command(about = "A program to parse access logs and retrieve top IP addresses")]
-struct CliOptions {
-    #[arg(value_name = "FILE_PATH")]
-    file_path: PathBuf,
-
-    #[arg(short, long, default_value_t = 15)]
-    max_ips: usize,
-
-    #[arg(short, long, default_value_t = 3)]
-    top_params: usize,
-
-    #[arg(short = 'h', long)]
-    filter_hours: Option<u16>,
-
-    #[arg(short = 'l', long = "ignore-location", default_value_t = false)]
-    ignore_location: bool,
-
-    #[arg(short = 'c', long = "no-colors", default_value_t = true, action= ArgAction::SetFalse)]
-    colors: bool,
-
-    #[arg(short = 'f', long = "no-footer", default_value_t = true, action= ArgAction::SetFalse)]
-    footer: bool,
-}
 
 fn ip_map_to_vect(ip_map: HashMap<String, IpInfo>) -> Vec<(String, IpInfo)> {
     let mut ip_vec: Vec<(String, IpInfo)> = ip_map.into_iter().collect();
@@ -183,6 +156,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     for (ip, ip_info) in ip_vec {
         ln += 1;
         printer.ip(ln, &ip, &ip_info);
+        let whois = whoiz::fetch(&ip)?;
+        println!("{}", whois.get_org_name().unwrap_or("UNK".to_string()));
+        println!("{}", whois.get_net_name().unwrap_or("UNK".to_string()));
         if opts.top_params > 0 {
             println!();
             printer.list(
