@@ -1,6 +1,6 @@
 use std::{
     fs::File,
-    io::{self, BufRead, BufReader},
+    io::{self, BufRead, BufReader, Seek},
     path::PathBuf,
 };
 
@@ -16,7 +16,8 @@ impl FileReader {
     }
 
     pub fn get_lines(&self) -> Result<impl Iterator<Item = io::Result<String>>, io::Error> {
-        let reader = BufReader::new(&self.file);
+        let mut reader = BufReader::new(&self.file);
+        reader.rewind()?;
         Ok(reader.lines())
     }
 }

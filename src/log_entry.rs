@@ -10,7 +10,7 @@ pub struct LogEntry {
 }
 
 impl LogEntry {
-    pub fn parse(line: &str) -> Self {
+    pub fn parse(line: &str) -> Option<Self> {
         //let mut ip = None;
         let mut timestamp = None;
         let mut url = None;
@@ -35,14 +35,13 @@ impl LogEntry {
             referrer = Some(parts[3].to_string());
             ua = Some(parts[5].to_string());
         }
-
-        LogEntry {
+        Some(LogEntry {
             //ip,
             timestamp,
             url,
             referrer,
             ua,
-        }
+        })
     }
 
     pub fn parse_ip(line: &str) -> Option<&str> {
@@ -53,22 +52,17 @@ impl LogEntry {
         ip
     }
 
-    pub fn parse_ip_and_timestamp(line: &str) -> (Option<&str>, Option<DateTime<Local>>) {
-        let mut ip: Option<&str> = None;
-        let mut timestamp: Option<DateTime<Local>> = None;
-
+    pub fn parse_ip_and_timestamp(line: &str) -> Option<(&str, DateTime<Local>)> {
         if let Some((found_ip, rest_of_line)) = line.split_once(" ") {
-            ip = Some(found_ip);
-
             if let Some((date, _)) = rest_of_line.split_once("]") {
-                if let Some((_, date)) = date.split_once("[") {
-                    timestamp = DateTime::parse_from_str(date, "%d/%b/%Y:%H:%M:%S %z")
-                        .ok()
-                        .map(|dt| dt.with_timezone(&Local));
+                if let Some((_, date_str)) = date.split_once("[") {
+                    if let Ok(dt) = DateTime::parse_from_str(date_str, "%d/%b/%Y:%H:%M:%S %z") {
+                        let timestamp = dt.with_timezone(&Local);
+                        return Some((found_ip, timestamp));
+                    }
                 }
             }
         }
-
-        (ip, timestamp)
+        None // Return None if parsing fails
     }
 }

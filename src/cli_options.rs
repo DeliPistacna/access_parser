@@ -15,7 +15,7 @@ pub struct CliOptions {
     #[arg(short, long, default_value_t = 3)]
     pub top_params: usize,
 
-    #[arg(short = 'h', long)]
+    #[arg(short = 'r', long)]
     pub filter_hours: Option<u16>,
 
     #[arg(short = 'l', long = "ignore-location", default_value_t = false)]

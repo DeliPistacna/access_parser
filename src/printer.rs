@@ -76,7 +76,7 @@ impl Printer {
         );
     }
 
-    pub fn list(&self, vec: Vec<(String, usize)>, title: &str, limit: usize) {
+    pub fn list(&self, vec: Vec<(&String, &usize)>, title: &str, limit: usize) {
         let color = Colour::Blue;
         let limited_vec = vec.iter().take(limit);
         println!(
