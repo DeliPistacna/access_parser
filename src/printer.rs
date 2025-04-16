@@ -1,6 +1,7 @@
 use core::str;
 
 use ansi_term::Colour;
+use chrono::{DateTime, Local};
 
 use crate::{ip_info::IpInfo, ip_location::IpLocation};
 
@@ -28,7 +29,7 @@ impl Printer {
         line_count: usize,
         elapsed: u128,
         time_fetching: u128,
-        igonre_location: bool,
+        geolocate: bool,
     ) {
         let pb = Colour::Purple;
         println!(
@@ -47,7 +48,7 @@ impl Printer {
             self.opt_color(&line_count.to_string(), &pb, true),
             self.opt_color(&format!("{}{}", elapsed, "ms"), &pb, true)
         );
-        if !igonre_location {
+        if geolocate {
             println!(
                 "Ip location fetched in {} (freeipapi.com)",
                 self.opt_color(&format!("{}{}", time_fetching, "ms"), &pb, true)
@@ -55,7 +56,7 @@ impl Printer {
         }
     }
 
-    pub fn ip(&self, ln: usize, ip: &str, ip_info: &IpInfo) {
+    pub fn ip(&self, ln: usize, ip: &str, ip_info: &IpInfo, latest_timestamp: DateTime<Local>) {
         let color = Colour::Cyan;
         let last_access = match ip_info.last_timestamp() {
             Some(timestamp) => timestamp.to_string(),
@@ -68,7 +69,7 @@ impl Printer {
             self.opt_color(&ip_info.count.to_string(), &color, true),
             self.opt_color(&ip_info.average_rpm().round().to_string(), &color, true),
             self.opt_color(
-                &ip_info.average_rpm_last_hour().round().to_string(),
+                &ip_info.average_rpm_last_hour(latest_timestamp).round().to_string(),
                 &color,
                 true
             ),

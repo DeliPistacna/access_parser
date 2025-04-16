@@ -1,6 +1,5 @@
 use chrono::{DateTime, Duration, Local};
 use std::collections::HashMap;
-
 use crate::{ip_location::IpLocation, log_entry::LogEntry};
 
 #[derive(Debug, Clone)]
@@ -49,9 +48,8 @@ impl IpInfo {
     }
 
     pub fn average_rpm(&self) -> f64 {
-        // Ensure there are access times to work with
         if self.timestamps.is_empty() {
-            return 0.0; // No requests, so no RPM
+            return 0.0; 
         }
 
         // Find the min and max timestamps from the timestamps
@@ -62,27 +60,20 @@ impl IpInfo {
         let duration = max_time.signed_duration_since(*min_time); // Duration between the first and last access time
         let duration_in_minutes = duration.num_minutes(); // Convert to minutes
 
-        // Calculate the RPM (requests per minute) over the full period
         if duration_in_minutes == 0 {
-            return self.timestamps.len() as f64; // If duration is less than 1 minute, treat as 1 minute interval
+            return self.timestamps.len() as f64; 
         }
 
-        // Calculate the average RPM by dividing the total count by the number of minutes in the range
         self.timestamps.len() as f64 / duration_in_minutes as f64
     }
 
-    // Calculate average RPM over the last hour based on the most recent timestamp in timestamps
-    pub fn average_rpm_last_hour(&self) -> f64 {
-        // Ensure there are access times to work with
+    pub fn average_rpm_last_hour(&self, latest_timestamp: DateTime<Local>) -> f64 {
         if self.timestamps.is_empty() {
-            return 0.0; // No requests, so no RPM
+            return 0.0; 
         }
 
-        // Get the most recent timestamp (last access time)
-        let last_timestamp = self.timestamps.iter().max().unwrap(); // Most recent timestamp
-
         // Calculate the time range for the last hour (relative to the last timestamp)
-        let one_hour_ago = *last_timestamp - Duration::hours(1);
+        let one_hour_ago = latest_timestamp - Duration::hours(1);
 
         // Filter access times to include only those in the last hour
         let recent_timestamps: Vec<_> = self
@@ -91,15 +82,12 @@ impl IpInfo {
             .filter(|&&time| time >= one_hour_ago)
             .collect();
 
-        // If no requests were in the last hour, return 0.0 RPM
         if recent_timestamps.is_empty() {
             return 0.0;
         }
 
-        // Calculate the RPM for the last hour
-        let duration_in_minutes = 60; // We always consider a 1-hour period (60 minutes)
+        let duration_in_minutes = 60; 
 
-        // Return the RPM: number of requests in the last hour divided by 60 minutes
         recent_timestamps.len() as f64 / duration_in_minutes as f64
     }
 
