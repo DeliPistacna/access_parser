@@ -1,9 +1,6 @@
 use crate::{file_reader::FileReader, ip_info::IpInfo, log_entry::LogEntry};
 use chrono::{DateTime, Local};
-use std::{
-    collections::{HashMap, HashSet},
-    process::exit,
-};
+use std:: collections::{HashMap, HashSet};
 
 #[derive(PartialEq, Debug)]
 pub enum ParseType {
@@ -34,15 +31,15 @@ impl<'a> LogProcessor<'a> {
         &mut self,
         ip_map: &mut HashMap<String, IpInfo>,
         parse_type: ParseType,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<usize , Box<dyn std::error::Error>> {
         let should_filter_ips = !self.filter_ips.is_empty();
+        let mut processed_lines:usize = 0;
 
-        for (ln, line) in self.reader.get_lines()?.enumerate() {
-            if ln > 0 && ln % 50000 == 0 {
-                println!("Processed {ln} lines");
-            }
+        for line in self.reader.get_lines()? {
+            processed_lines += 1;
             let line = line?;
             match parse_type {
+
                 ParseType::IpOnly => {
                     if let Some(ip) = LogEntry::parse_ip(&line) {
                         let entry = ip_map.entry(ip.to_string()).or_insert_with(IpInfo::new);
@@ -74,9 +71,10 @@ impl<'a> LogProcessor<'a> {
                         }
                     }
                 }
+
             };
         }
 
-        Ok(())
+        Ok(processed_lines)
     }
 }

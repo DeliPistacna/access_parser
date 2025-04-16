@@ -94,21 +94,14 @@ impl Printer {
         }
     }
 
-    pub fn location(&self, location_data: Option<IpLocation>) {
+    pub fn location(&self, location: IpLocation) {
         let color = Colour::Red;
         let unk: String = "Unknown".to_string();
-        match location_data {
-            Some(location) => {
-                println!(
-                    "\tLocation: {}, {}, {}",
-                    self.opt_color(&location.country_name.unwrap_or(unk.clone()), &color, true),
-                    self.opt_color(&location.region_name.unwrap_or(unk.clone()), &color, true),
-                    self.opt_color(&location.city_name.unwrap_or(unk.clone()), &color, true),
-                )
-            }
-            None => {
-                println!("\tLocation: {}", self.opt_color("Unknown", &color, true))
-            }
-        }
+        println!(
+            "\tLocation: {}, {}, {}",
+            self.opt_color(&location.country_name.unwrap_or(unk.clone()), &color, true),
+            self.opt_color(&location.region_name.unwrap_or(unk.clone()), &color, true),
+            self.opt_color(&location.city_name.unwrap_or(unk.clone()), &color, true),
+        );
     }
 }

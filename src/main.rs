@@ -1,4 +1,5 @@
 mod cli_options;
+mod cache;
 mod config_reader;
 mod file_reader;
 mod free_ip_api;
@@ -9,24 +10,18 @@ mod log_processor;
 mod printer;
 mod slack_webhook;
 
-use chrono::{DateTime, Local};
+use cache::Cache;
 use clap::Parser;
 use cli_options::CliOptions;
 use file_reader::FileReader;
 use free_ip_api::FreeIpApi;
 use ip_info::IpInfo;
-use log_entry::LogEntry;
 use log_processor::{LogProcessor, ParseType};
 use printer::Printer;
-use slack_webhook::{Message, SlackWebhook};
+// use slack_webhook::{Message, SlackWebhook};
 
 use std::{
-    cmp::Reverse,
-    collections::{HashMap, HashSet, hash_map::Entry},
-    error::Error,
-    path::Path,
-    process::exit,
-    time::{Duration, Instant},
+    cmp::Reverse, collections::{HashMap, HashSet}, error::Error, process::exit, time::{Duration, Instant}
 };
 
 fn ip_map_to_vect(ip_map: &HashMap<String, IpInfo>) -> Vec<(&String, &IpInfo)> {
@@ -43,68 +38,42 @@ fn count_hashmap_to_vect(map: &HashMap<String, usize>) -> Vec<(&String, &usize)>
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let config = config_reader::get_config(Path::new("./slack.config"))?;
-    let slack_webhook = config
-        .get("webhook")
-        .map(|webhook| SlackWebhook::new(webhook.to_string()));
-
     let timer = Instant::now();
     let opts = CliOptions::parse();
     let mut ip_map: HashMap<String, IpInfo> = HashMap::new();
     let file_reader = FileReader::new(opts.file_path.clone())?;
-    let mut line_count = 0;
-    let mut most_recent_timestamp: chrono::DateTime<Local> = DateTime::default();
-    let mut filter_timestamp: chrono::DateTime<Local> = chrono::Local::now();
-    let filter_hours = opts.filter_hours.is_some();
-
-    // Quick pass over file, collecting ips
-    // This is used to create HashSet of n most common top_ips
-    // HashSet will be used to filter in second pass where more data is parsed and collected
-
-    // REFACTOR
     let mut log_processor = LogProcessor::new(&file_reader, opts.filter_hours);
-    match opts.filter_hours {
-        Some(_filter_hours) => {
-            log_processor.process_log(&mut ip_map, ParseType::IpAndTimestamp)?;
-            // TODO: filter here
-        }
-        None => {
-            log_processor.process_log(&mut ip_map, ParseType::IpOnly)?;
-        }
-    }
+    // let filter_hours = opts.filter_hours.is_some();
 
-    // TODO: Filter top ips
-    {
-        let mut top_ips = ip_map_to_vect(&ip_map);
-        top_ips.truncate(opts.max_ips);
-        let top_ip_set: HashSet<String> = top_ips.into_iter().map(|(ip, _)| ip.clone()).collect();
-        log_processor.filter_ips = top_ip_set;
-    }
+    let line_count = match opts.filter_hours {
+        Some(_filter_hours) => log_processor.process_log(&mut ip_map, ParseType::IpAndTimestamp)?,
+        None => log_processor.process_log(&mut ip_map, ParseType::IpOnly)?,
+    };
 
+
+    log_processor.filter_ips = ip_map_to_vect(&ip_map)
+        .into_iter()
+        .take(opts.max_ips)
+        .map(|(ip, _)| ip.to_string() )
+        .collect();
     log_processor.process_log(&mut ip_map, ParseType::Full)?;
-    // REFACTOR_END
-    let collected_ips: HashSet<String> = ip_map.keys().cloned().collect();
 
     let elapsed = timer.elapsed();
-    let mut time_fetching = Duration::default();
 
-    // Fetch location info for collected ips
-    // if !opts.ignore_location {
-    //     let timer = Instant::now();
-    //     let location_data = FreeIpApi::get_loc_info(collected_ips).await?;
-    //     for loc in location_data {
-    //         let ip = match &loc.ip_address {
-    //             Some(ip) => ip,
-    //             None => continue,
-    //         };
-    //
-    //         if let Entry::Occupied(mut entry) = ip_map.entry(ip.to_string()) {
-    //             entry.get_mut().location_data = Some(loc);
-    //         }
-    //         {}
-    //     }
-    //     time_fetching = timer.elapsed();
-    // }
+
+    let mut time_fetching = Duration::default();
+    if !opts.ignore_location {
+
+        for loc in  FreeIpApi::get_loc_info(log_processor.filter_ips.clone()).await? {
+            if let Some(ip) = loc.ip_address.clone() {
+                if ip_map.contains_key(&ip) {
+                    ip_map.entry(ip)
+                        .and_modify(|data| data.location_data = Some(loc));
+                }
+            }
+        }
+        time_fetching = timer.elapsed();
+    }
 
     let ip_vec = ip_map_to_vect(&ip_map);
     let printer = Printer::new(opts.colors);
@@ -112,7 +81,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     for (ip, ip_info) in ip_vec {
         ln += 1;
         printer.ip(ln, ip, ip_info);
-        // let whois = whoiz::fetch(&ip)?;
+        // let whois = whoiz::fetch(&ip.clone())?;
         // println!("{}", whois.get_org_name().unwrap_or("UNK".to_string()));
         // println!("{}", whois.get_net_name().unwrap_or("UNK".to_string()));
         if opts.top_params > 0 {
@@ -134,10 +103,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 "UA",
                 opts.top_params,
             );
-            println!();
-            // if !opts.ignore_location {
-            //     printer.location(ip_info.location_data);
-            // }
+            if !opts.ignore_location {
+                if let Some(loc) = &ip_info.location_data {
+                    println!();
+                    printer.location(loc.clone());
+                }
+            }
             println!();
         }
     }
