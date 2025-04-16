@@ -30,40 +30,45 @@ impl Printer {
         elapsed: u128,
         time_fetching: u128,
         geolocate: bool,
-    ) {
+    ) -> String {
         let pb = Colour::Purple;
-        println!(
-            "\n\nThank you for using {}",
+        let mut buff = String::new();
+
+        buff += &format!(
+            "\n\nThank you for using {}\n",
             self.opt_color("Delaja's Access Log Parser", &pb, true),
         );
-        println!(
-            "Made with {} by {} [{}]",
+
+        buff += &format!(
+            "Made with {} by {} [{}]\n",
             self.opt_color("<3", &pb, true),
             self.opt_color("Delaja Fedorco", &pb, true),
             self.opt_color("https://delaja.sk", &pb, false),
         );
 
-        println!(
-            "\nProcessed {} lines in {}",
+        buff += &format!(
+            "\nProcessed {} lines in {}\n",
             self.opt_color(&line_count.to_string(), &pb, true),
             self.opt_color(&format!("{}{}", elapsed, "ms"), &pb, true)
         );
         if geolocate {
-            println!(
-                "Ip location fetched in {} (freeipapi.com)",
+            buff += &format!(
+                "Ip location fetched in {} (freeipapi.com)\n",
                 self.opt_color(&format!("{}{}", time_fetching, "ms"), &pb, true)
             );
         }
+        buff += "\n";
+        buff
     }
 
-    pub fn ip(&self, ln: usize, ip: &str, ip_info: &IpInfo, latest_timestamp: DateTime<Local>) {
+    pub fn ip(&self, ln: usize, ip: &str, ip_info: &IpInfo, latest_timestamp: DateTime<Local>) -> String {
         let color = Colour::Cyan;
         let last_access = match ip_info.last_timestamp() {
             Some(timestamp) => timestamp.to_string(),
             None => "Unknown".to_string(),
         };
-        println!(
-            "[{}] {}: ({} requests, average RPM: {}, RPM in last hour: {}, last access: {})",
+        format!(
+            "[{}] {}: ({} requests, average RPM: {}, RPM in last hour: {}, last access: {})\n",
             ln,
             self.opt_color(ip, &color, true),
             self.opt_color(&ip_info.count.to_string(), &color, true),
@@ -74,35 +79,34 @@ impl Printer {
                 true
             ),
             self.opt_color(&last_access, &color, true),
-        );
+        )
     }
 
-    pub fn list(&self, vec: Vec<(&String, &usize)>, title: &str, limit: usize) {
+    pub fn list(&self, vec: Vec<(&String, &usize)>, title: &str, limit: usize) -> String{
         let color = Colour::Blue;
         let limited_vec = vec.iter().take(limit);
-        println!(
-            "\t{} Most common {}s: ({} unique)",
+        let mut buff = String::new();
+
+        buff += &format!(
+            "\t{} Most common {}s: ({} unique)\n",
             limited_vec.len(),
             self.opt_color(title, &color, true),
             self.opt_color(&vec.len().to_string(), &color, true)
         );
         for (string, count) in limited_vec {
-            println!(
+            buff += &format!(
                 "\t\t{} ({})",
                 self.opt_color(string, &color, false),
                 self.opt_color(&format!("{}{}", &count.to_string(), "x"), &color, true),
-            )
+            );
+            buff += "\n";
         }
+        buff += "\n";
+        buff
     }
 
-    pub fn location(&self, location: IpLocation) {
+    pub fn location(&self, location: IpLocation) -> String{
         let color = Colour::Red;
-        let unk: String = "Unknown".to_string();
-        println!(
-            "\tLocation: {}, {}, {}",
-            self.opt_color(&location.country_name.unwrap_or(unk.clone()), &color, true),
-            self.opt_color(&location.region_name.unwrap_or(unk.clone()), &color, true),
-            self.opt_color(&location.city_name.unwrap_or(unk.clone()), &color, true),
-        );
+        format!("\t{}", self.opt_color(&location.to_string(), &color, true))
     }
 }

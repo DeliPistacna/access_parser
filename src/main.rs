@@ -10,13 +10,13 @@ mod log_processor;
 mod printer;
 mod slack_webhook;
 
-use clap::Parser;
+use clap::{builder::Str, Parser};
 use cli_options::CliOptions;
-use file_reader::FileReader;
 use free_ip_api::FreeIpApi;
 use ip_info::IpInfo;
 use log_processor::{LogProcessor, ParseType};
 use printer::Printer;
+use slack_webhook::{Message, SlackWebhook};
 
 use std::{
     cmp::Reverse, collections::HashMap, error::Error, time::{Duration, Instant}
@@ -87,8 +87,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let mut time_fetching = Duration::default();
     if opts.geolocate {
-
-        for loc in  FreeIpApi::get_loc_info(log_processor.filter_ips.clone()).await? {
+        let ip_set = ip_map.keys().cloned().collect();
+        for loc in  FreeIpApi::get_loc_info(ip_set ).await? {
             if let Some(ip) = loc.ip_address.clone() {
                 if ip_map.contains_key(&ip) {
                     ip_map.entry(ip)
@@ -97,48 +97,50 @@ async fn main() -> Result<(), Box<dyn Error>> {
             }
         }
         time_fetching = timer.elapsed();
-
     }
 
     let ip_vec = ip_map_to_vect(&ip_map);
+
+
+    let mut output_buff = String::new();
+
     let printer = Printer::new(opts.colors);
     let mut ln = 0;
-    for (ip, ip_info) in ip_vec {
+    for (ip, ip_info) in ip_vec.clone() {
 
         ln += 1;
-        printer.ip(ln, ip, ip_info, log_processor.get_latest_timestamp());
+        output_buff += &printer.ip(ln, ip, ip_info, log_processor.get_latest_timestamp());
+        if opts.geolocate {
+            if let Some(loc) = &ip_info.location_data {
+                printer.location(loc.clone());
+            }
+        }
         if opts.top_params > 0 {
-            println!();
-            printer.list(
+            output_buff += "\n";
+            output_buff += &printer.list(
                 count_hashmap_to_vect(&ip_info.url_map),
                 "URL",
                 opts.top_params,
             );
-            println!();
-            printer.list(
+            output_buff += "\n";
+            output_buff += &printer.list(
                 count_hashmap_to_vect(&ip_info.referrer_map),
                 "Referrer",
                 opts.top_params,
             );
-            println!();
-            printer.list(
+            output_buff += "\n";
+            output_buff += &printer.list(
                 count_hashmap_to_vect(&ip_info.ua_map),
                 "UA",
                 opts.top_params,
             );
-            if !opts.geolocate {
-                if let Some(loc) = &ip_info.location_data {
-                    println!();
-                    printer.location(loc.clone());
-                }
-            }
-            println!();
+            output_buff += "\n";
         }
 
     }
 
     if opts.footer {
-        printer.footer(
+        output_buff += &printer.footer(
             line_count,
             elapsed.as_millis(),
             time_fetching.as_millis(),
@@ -146,5 +148,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
         );
     }
 
+
+    if !ip_vec.is_empty() && opts.slack {
+        dotenv::dotenv()?; 
+        if let Ok(webhook_url) = dotenv::var("WEBHOOK"){
+            let slack_webhook = SlackWebhook::new(webhook_url);
+            let msg = Message::new(&output_buff.clone());
+            // let msg = Message::new("asd");
+            slack_webhook.send_message(msg).await?;
+        }
+       
+    }
+
+    println!("{output_buff}");
+    
     Ok(())
 }

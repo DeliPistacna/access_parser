@@ -24,6 +24,9 @@ pub struct CliOptions {
     #[arg(short = 'r', long)]
     pub filter_hours: Option<f64>,
 
+    #[arg(short = 's', long = "slack", default_value_t = false)]
+    pub slack: bool,
+
     #[arg(short = 'l', long = "ignore-location", default_value_t = false)]
     pub geolocate: bool,
 

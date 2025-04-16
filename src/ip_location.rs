@@ -1,5 +1,5 @@
 use serde::Deserialize;
-use std::hash::{Hash, Hasher};
+use std::{fmt::Display, hash::{Hash, Hasher}};
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct IpLocation {
@@ -63,6 +63,21 @@ pub struct IpLocation {
 //     pub name: Option<String>,
 // }
 // Implement `Hash` for `IpLocation`
+
+impl Display for IpLocation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut buff = String::new();
+        if let Some(country) = &self.country_name {
+            buff.push_str(country);
+        }
+        if let Some(city) = &self.city_name {
+            buff.push_str(", ");
+            buff.push_str(city);
+        }
+        write!(f,"{}",buff)
+    }
+}
+
 impl Hash for IpLocation {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.ip_address.hash(state); // We will hash the `ip_address` field as the unique identifier

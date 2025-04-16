@@ -1,6 +1,6 @@
 use crate::{file_reader::{FileReader, ReaderDirection}, ip_info::IpInfo, log_entry::LogEntry};
 use chrono::{DateTime, Local, TimeDelta};
-use std::{ collections::{HashMap, HashSet}, io::Error, path::{Path, PathBuf}};
+use std::{ collections::{HashMap, HashSet}, io::Error, path::Path};
 
 #[derive(PartialEq, Debug)]
 pub enum ParseType {
@@ -49,12 +49,10 @@ impl LogProcessor {
             _ => ReaderDirection::Normal,
         };
 
-        
         let filter_delta = match self.filter_hours {
             Some(hours) => TimeDelta::new((hours*3600f64).floor() as i64 ,0 ),
             _ => None,
         };
-
 
         for line in self.reader.get_lines(dir)? {
             processed_lines += 1;

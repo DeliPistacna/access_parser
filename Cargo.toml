@@ -17,3 +17,4 @@ tokio = { version = "1.44.1", features = [
 ansi_term = "0.12.1"
 chrono = "0.4.40"
 rev_buf_reader = "0.3.0"
+dotenv = "0.15.0"
