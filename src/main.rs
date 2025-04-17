@@ -16,6 +16,7 @@ use free_ip_api::FreeIpApi;
 use ip_info::IpInfo;
 use log_processor::{LogProcessor, ParseType};
 use printer::Printer;
+use reqwest::header;
 use slack_webhook::{Message, SlackWebhook};
 
 use std::{
@@ -86,7 +87,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let elapsed = timer.elapsed();
 
     let mut time_fetching = Duration::default();
-    if opts.geolocate {
+    if opts.geolocate && !ip_map.is_empty() {
         let ip_set = ip_map.keys().cloned().collect();
         for loc in  FreeIpApi::get_loc_info(ip_set ).await? {
             if let Some(ip) = loc.ip_address.clone() {
@@ -112,7 +113,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         output_buff += &printer.ip(ln, ip, ip_info, log_processor.get_latest_timestamp());
         if opts.geolocate {
             if let Some(loc) = &ip_info.location_data {
-                printer.location(loc.clone());
+                output_buff += &printer.location(loc.clone());
+                output_buff += "\n";
             }
         }
         if opts.top_params > 0 {
@@ -153,7 +155,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
         dotenv::dotenv()?; 
         if let Ok(webhook_url) = dotenv::var("WEBHOOK"){
             let slack_webhook = SlackWebhook::new(webhook_url);
-            let msg = Message::new(&output_buff.clone());
+            let mut text = String::new();
+            text += "SUSPICIOUS ACTIVITY\n----------------------------\n";
+            text += &output_buff.clone();
+            let msg = Message::new(&text);
             // let msg = Message::new("asd");
             slack_webhook.send_message(msg).await?;
         }
