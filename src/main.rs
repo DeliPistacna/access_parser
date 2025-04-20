@@ -1,6 +1,5 @@
-mod cli_options;
 mod cache;
-mod config_reader;
+mod cli_options;
 mod file_reader;
 mod free_ip_api;
 mod ip_info;
@@ -10,17 +9,19 @@ mod log_processor;
 mod printer;
 mod slack_webhook;
 
-use clap::{builder::Str, Parser};
+use clap::Parser;
 use cli_options::CliOptions;
 use free_ip_api::FreeIpApi;
 use ip_info::IpInfo;
 use log_processor::{LogProcessor, ParseType};
 use printer::Printer;
-use reqwest::header;
 use slack_webhook::{Message, SlackWebhook};
 
 use std::{
-    cmp::Reverse, collections::HashMap, error::Error, time::{Duration, Instant}
+    cmp::Reverse,
+    collections::HashMap,
+    error::Error,
+    time::{Duration, Instant},
 };
 
 fn ip_map_to_vect(ip_map: &HashMap<String, IpInfo>) -> Vec<(&String, &IpInfo)> {
@@ -51,36 +52,36 @@ async fn main() -> Result<(), Box<dyn Error>> {
         log_processor.filter_ips = ip_map_to_vect(&ip_map)
             .into_iter()
             .take(opts.max_ips)
-            .map(|(ip, _)| ip.to_string() )
+            .map(|(ip, _)| ip.to_string())
             .collect();
     }
 
     match opts.filter_hours {
         // when filtering by time run in reverse
-        Some(_) => { log_processor.process_log(&mut ip_map, ParseType::FullReverse)?; },
-        None => { log_processor.process_log(&mut ip_map, ParseType::Full)?; },
+        Some(_) => {
+            log_processor.process_log(&mut ip_map, ParseType::FullReverse)?;
+        }
+        None => {
+            log_processor.process_log(&mut ip_map, ParseType::Full)?;
+        }
     }
-    
-
 
     // Filter RPM | Requests
-    if opts.filter_rpm.is_some() || opts.filter_requests.is_some(){
-        for (ip,ip_info) in ip_map.clone() {
-
+    if opts.filter_rpm.is_some() || opts.filter_requests.is_some() {
+        for (ip, ip_info) in ip_map.clone() {
             if let Some(min_rpm) = opts.filter_rpm {
                 if ip_info.average_rpm() < min_rpm as f64 {
                     ip_map.remove(&ip);
                     continue;
-                } 
+                }
             }
 
             if let Some(min_requests) = opts.filter_requests {
                 if ip_info.count < min_requests {
                     ip_map.remove(&ip);
                     continue;
-                } 
+                }
             }
-
         }
     }
 
@@ -89,10 +90,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut time_fetching = Duration::default();
     if opts.geolocate && !ip_map.is_empty() {
         let ip_set = ip_map.keys().cloned().collect();
-        for loc in  FreeIpApi::get_loc_info(ip_set ).await? {
+        for loc in FreeIpApi::get_loc_info(ip_set).await? {
             if let Some(ip) = loc.ip_address.clone() {
                 if ip_map.contains_key(&ip) {
-                    ip_map.entry(ip)
+                    ip_map
+                        .entry(ip)
                         .and_modify(|data| data.location_data = Some(loc));
                 }
             }
@@ -102,13 +104,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let ip_vec = ip_map_to_vect(&ip_map);
 
-
     let mut output_buff = String::new();
 
     let printer = Printer::new(opts.colors);
     let mut ln = 0;
     for (ip, ip_info) in ip_vec.clone() {
-
         ln += 1;
         output_buff += &printer.ip(ln, ip, ip_info, log_processor.get_latest_timestamp());
         if opts.geolocate {
@@ -138,7 +138,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
             );
             output_buff += "\n";
         }
-
     }
 
     if opts.footer {
@@ -150,10 +149,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
         );
     }
 
-
     if !ip_vec.is_empty() && opts.slack {
-        dotenv::dotenv()?; 
-        if let Ok(webhook_url) = dotenv::var("WEBHOOK"){
+        dotenv::dotenv()?;
+        if let Ok(webhook_url) = dotenv::var("WEBHOOK") {
             let slack_webhook = SlackWebhook::new(webhook_url);
             let mut text = String::new();
             text += "SUSPICIOUS ACTIVITY\n----------------------------\n";
@@ -162,10 +160,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
             // let msg = Message::new("asd");
             slack_webhook.send_message(msg).await?;
         }
-       
     }
 
     println!("{output_buff}");
-    
+
     Ok(())
 }
